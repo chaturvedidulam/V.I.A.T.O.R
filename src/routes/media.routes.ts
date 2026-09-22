@@ -1,6 +1,9 @@
 import { Router } from "express";
 
-import { uploadMediaController } from "../controllers/media.controller";
+import {
+  getMediaController,
+  uploadMediaController,
+} from "../controllers/media.controller";
 import { authenticate } from "../middleware/auth.middleware";
 import { uploadSingleImage } from "../middleware/upload.middleware";
 
@@ -11,6 +14,12 @@ router.post(
   authenticate,
   uploadSingleImage,
   uploadMediaController
+);
+
+router.get(
+  "/:id",
+  authenticate,
+  getMediaController
 );
 
 export default router;

@@ -23,4 +23,5 @@ export interface User {
   placesBeenTo: string[];
   followers: string[];
   following: string[];
+  bio: string;
 }

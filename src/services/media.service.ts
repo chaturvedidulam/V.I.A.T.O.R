@@ -9,6 +9,21 @@ import type { UploadApiResponse } from "cloudinary";
 
 const MEDIA_COLLECTION = "media";
 
+export async function getMediaById(
+  id: string
+): Promise<Media | null> {
+  const document = await db
+    .collection(MEDIA_COLLECTION)
+    .doc(id)
+    .get();
+
+  if (!document.exists) {
+    return null;
+  }
+
+  return document.data() as Media;
+}
+
 export async function uploadMedia(
   uid: string,
   fileBuffer: Buffer,

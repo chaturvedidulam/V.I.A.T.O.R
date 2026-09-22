@@ -62,6 +62,7 @@ export async function createUser(
     placesBeenTo: [],
     followers: [],
     following: [],
+    bio: "",
   };
 
   await db
@@ -87,7 +88,15 @@ export async function getOrCreateUser(
       );
 
     if (!snapshot.empty) {
-      return snapshot.docs[0].data() as User;
+      const existingDocument = snapshot.docs[0];
+      const existingUser = existingDocument.data() as User;
+
+      if (typeof existingUser.bio !== "string") {
+        transaction.update(existingDocument.ref, { bio: "" });
+        return { ...existingUser, bio: "" };
+      }
+
+      return existingUser;
     }
 
     const now = Timestamp.now();
@@ -107,6 +116,7 @@ export async function getOrCreateUser(
       placesBeenTo: [],
       followers: [],
       following: [],
+      bio: "",
     };
 
     const userRef = db
@@ -127,5 +137,29 @@ export async function updateLastLogin(
     .doc(id)
     .update({
       lastLogin: FieldValue.serverTimestamp(),
+    });
+}
+
+export async function updateProfilePic(
+  id: string,
+  mediaId: string
+): Promise<void> {
+  await db
+    .collection(USERS_COLLECTION)
+    .doc(id)
+    .update({
+      profilePic: mediaId,
+    });
+}
+
+export async function updateUserBio(
+  id: string,
+  bio: string
+): Promise<void> {
+  await db
+    .collection(USERS_COLLECTION)
+    .doc(id)
+    .update({
+      bio,
     });
 }
