@@ -5,6 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec ts-node src/index.ts",
+    "seed:pois": "ts-node src/scripts/seedPois.ts",
+    "seed:kerala-pois": "ts-node src/scripts/seedKeralaPois.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
