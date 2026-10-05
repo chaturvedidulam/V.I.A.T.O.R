@@ -36,18 +36,26 @@ It checks Kochi–Munnar and Kochi–Varkala with fastest, scenic, nature, cultu
 
 ## Scoring
 
-POI evidence is measured as `log(1 + category count per 100 route km)` and min-max normalized across candidates. Equal positive evidence normalizes to 1 for every candidate; equal zero evidence normalizes to 0. Duration and distance are min-max normalized, where 0 is best. Scores are the weighted sum below, clamped to 0–1:
+POI evidence is measured as `log(1 + category count × 100,000 / route distance in metres)` and min-max normalized across candidates. Equal positive evidence normalizes to 1 for every candidate; equal zero evidence normalizes to 0. Duration and distance are min-max normalized, where 0 is best. This means sparse evidence can still distinguish candidates; inspect the raw counts and evidence level alongside any score. Scores are deterministic product rules, not machine learning.
 
 | Preference | Evidence weights | Duration | Distance |
 |---|---|---:|---:|
 | Fastest | Duration only: 1.00 | — | — |
-| Scenic | Nature/waterfall .20, viewpoint .20, beach .15, wildlife .15, park .10 | .10 | .10 |
-| Nature | Nature/waterfall .40, wildlife .25, park .15 | .10 | .10 |
+| Scenic | Mapped nature .10, waterfall .10, viewpoint .20, beach .15, wildlife .15, park .10 | .10 | .10 |
+| Nature | Nature .25, waterfall .15, wildlife .25, park .15 | .10 | .10 |
 | Food | Food .80 | .10 | .10 |
-| Culture | Heritage .35, museum .25, culture/religious .20 | .10 | .10 |
+| Culture | Heritage .35, museum .25, religious .20 | .10 | .10 |
 | Hidden-gems | Explicit `hidden-gem` POI tags .80 | .10 | .10 |
 
-When a non-fastest preference has no matching route-corridor evidence, its preference is marked unsupported and scores are null; the shortest-duration candidate is named as a fallback. Ties are resolved by OSRM duration, then candidate ID.
+Each candidate retains the legacy `categoryCounts` and adds explicit `natureCount`, `waterfallCount`, `wildlifeCount`, `parkCount`, `beachCount`, `foodCount`, `heritageCount`, `museumCount`, and `religiousCount`. `categoryCountPer100Km` reports each evidence category count divided by route distance in km and multiplied by 100. `evidence.categoryCounts` also includes viewpoint and explicit hidden-gem tag counts. No evidence is fabricated; absent categories have count zero.
+
+`evidence` reports nearby POI count, matched categories, category counts, corridor width, an evidence level and a meaning note. Levels use total nearby POI count: none = 0, sparse = 1–2, moderate = 3–7, strong = 8+. These levels mean only the amount of mapped OSM/VIATOR evidence found near the route. They do not describe route quality, popularity, real-world completeness, scenic quality or satisfaction.
+
+`detourFromFastestMeters` and `detourFromFastestSeconds` remain. `detourFromFastestPercent` is distance detour relative to the fastest candidate; `detourFromFastestDurationPercent` is duration detour relative to its duration. Both are zero-safe and are relative route detour, not traffic cost.
+
+Scenic is only a **mapped scenic evidence proxy** based on nearby mapped nature, viewpoints, beaches, waterfalls, wildlife and parks. It does not claim the road itself is scenic or that these features are visible from it. Food is supported only if matching food POIs are actually present in the current POI dataset; this seed does not explicitly query restaurants/cafes, so food may be unsupported. Hidden-gems is unsupported unless POI records contain an explicit `hidden-gem` tag. Zero/missing ratings, low counts, rarity and distance are never used to infer hidden-gem status. If a preference has no matching corridor evidence, scores are null and the fastest OSRM candidate is recommended as fallback.
+
+OSM POI coverage is incomplete and can vary by place and category. The engine depends on the existing VIATOR POI API (whose imported content comes from OSM/Overpass) and the public OSRM routing service by default. These public services may be unavailable or rate-limited and do not provide guaranteed coverage or uptime. Ties are resolved by OSRM duration, then candidate ID.
 
 ## Data and limits
 

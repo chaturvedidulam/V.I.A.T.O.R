@@ -8,6 +8,7 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter",
 ];
 const MAX_IMPORTED_POIS = 300;
+const MAX_IMPORTED_FOOD_POIS = 100;
 const DUPLICATE_DISTANCE_METERS = 45;
 const KERALA_QUERY = `
 [out:json][timeout:90];
@@ -18,6 +19,9 @@ area["boundary"="administrative"]["admin_level"="4"]["name"="Kerala"]->.kerala;
   nwr(area.kerala)["leisure"~"^(nature_reserve|park|garden)$"];
   nwr(area.kerala)["boundary"="national_park"];
   nwr(area.kerala)["historic"~"^(monument|memorial|castle|fort|archaeological_site|ruins|wayside_shrine|manor)$"];
+  nwr(area.kerala)["amenity"~"^(restaurant|cafe)$"]["name"];
+  nwr(area.kerala)["amenity"~"^(restaurant|cafe)$"]["name:en"];
+  nwr(area.kerala)["amenity"~"^(restaurant|cafe)$"]["name:ml"];
 );
 out center tags;
 `;
@@ -34,7 +38,7 @@ type OSMElement = {
 type OverpassResponse = { elements?: OSMElement[]; remark?: string };
 type LocatedPOI = { poi: Omit<POI, "createdAt" | "updatedAt">; sourceKey: string; priority: number };
 
-const FEATURE_KEYS = ["tourism", "natural", "leisure", "boundary", "historic", "amenity"];
+const FEATURE_KEYS = ["tourism", "natural", "leisure", "boundary", "historic", "amenity", "cuisine"];
 const HISTORIC_VALUES = new Set([
   "monument", "memorial", "castle", "fort", "archaeological_site", "ruins", "wayside_shrine", "manor",
 ]);
@@ -70,6 +74,7 @@ function distanceMeters(a: POI["location"], b: POI["location"]): number {
 }
 
 function categoryFor(tags: Record<string, string>): string {
+  if (tags.amenity === "restaurant" || tags.amenity === "cafe") return "food";
   if (tags.natural === "waterfall") return "waterfall";
   if (tags.natural === "beach") return "beach";
   if (tags.tourism === "viewpoint" || tags.natural === "peak" || tags.natural === "cliff") return "viewpoint";
@@ -81,7 +86,6 @@ function categoryFor(tags: Record<string, string>): string {
   if (tags.natural) return "nature";
   if (tags.tourism === "camp_site" || tags.tourism === "picnic_site") return "adventure";
   if (tags.tourism === "zoo" || tags.tourism === "aquarium") return "wildlife";
-  if (tags.amenity === "restaurant" || tags.amenity === "cafe") return "food";
   if (tags.tourism || tags.leisure) return "attraction";
   return "other";
 }
@@ -205,6 +209,12 @@ async function seedKeralaPOIs(): Promise<void> {
   const existingDocuments = collection.docs.map((document) => document.data() as POI);
   const existingById = new Map(collection.docs.map((document) => [document.id, document.data() as POI]));
   const selected: LocatedPOI[] = [];
+  let newFoodRecords = 0;
+  let newNonFoodRecords = 0;
+  let selectedNonFoodRecords = 0;
+  const existingImportedFoodCount = existingDocuments.filter(
+    (poi) => poi.id.startsWith("POI_osm_") && poi.category === "food",
+  ).length;
 
   for (const candidate of candidates) {
     const duplicate = duplicateOf(candidate, [...existingDocuments, ...selected.map(({ poi }) => poi)]);
@@ -212,11 +222,20 @@ async function seedKeralaPOIs(): Promise<void> {
       deduplicated += 1;
       continue;
     }
-    if (selected.length >= MAX_IMPORTED_POIS && !existingById.has(candidate.poi.id)) {
-      countReject("quality_limit_300", `${candidate.sourceKey} ${candidate.poi.name}`);
-      continue;
+    if (!existingById.has(candidate.poi.id)) {
+      if (candidate.poi.category === "food" && existingImportedFoodCount + newFoodRecords >= MAX_IMPORTED_FOOD_POIS) {
+        countReject("food_quality_limit_100", `${candidate.sourceKey} ${candidate.poi.name}`);
+        continue;
+      }
+      if (candidate.poi.category !== "food" && selectedNonFoodRecords >= MAX_IMPORTED_POIS) {
+        countReject("quality_limit_300", `${candidate.sourceKey} ${candidate.poi.name}`);
+        continue;
+      }
+      if (candidate.poi.category === "food") newFoodRecords += 1;
+      else newNonFoodRecords += 1;
     }
     selected.push(candidate);
+    if (candidate.poi.category !== "food") selectedNonFoodRecords += 1;
   }
 
   const batch = db.batch();
@@ -248,6 +267,11 @@ async function seedKeralaPOIs(): Promise<void> {
     rejectedExamples,
     deduplicated,
     written: selected.length,
+    newFoodRecords,
+    foodRecordsWritten: selected.filter(({ poi }) => poi.category === "food").length,
+    existingImportedFoodCount,
+    foodImportCap: MAX_IMPORTED_FOOD_POIS,
+    nonFoodImportCap: MAX_IMPORTED_POIS,
     finalPOIs: collection.size + selected.filter(({ poi }) => !existingById.has(poi.id)).length,
     categoryCounts,
     preservedCuratedIds: [

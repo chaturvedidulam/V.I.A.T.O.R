@@ -9,6 +9,16 @@ import type { UploadApiResponse } from "cloudinary";
 
 const MEDIA_COLLECTION = "media";
 
+export class MediaRecordWriteError extends Error {
+  constructor(
+    public readonly media: Media,
+    public readonly originalError: unknown,
+  ) {
+    super("Cloudinary upload succeeded, but the Media record could not be written.");
+    this.name = "MediaRecordWriteError";
+  }
+}
+
 export async function getMediaById(
   id: string
 ): Promise<Media | null> {
@@ -27,12 +37,13 @@ export async function getMediaById(
 export async function uploadMedia(
   uid: string,
   fileBuffer: Buffer,
-  type: string
+  type: string,
+  uploadFolder = `viator/${uid}`,
 ): Promise<Media> {
   const uploadResult = await new Promise<UploadApiResponse>((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: `viator/${uid}`,
+        folder: uploadFolder,
         resource_type: "auto",
       },
       (error, result) => {
@@ -67,10 +78,14 @@ export async function uploadMedia(
     type,
   };
 
-  await db
-    .collection(MEDIA_COLLECTION)
-    .doc(mediaId)
-    .set(media);
+  try {
+    await db
+      .collection(MEDIA_COLLECTION)
+      .doc(mediaId)
+      .set(media);
+  } catch (error) {
+    throw new MediaRecordWriteError(media, error);
+  }
 
   return media;
 }

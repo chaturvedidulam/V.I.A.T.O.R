@@ -32,7 +32,8 @@ MIN_WAYPOINT_OFFSET_METERS = 1_500
 # Transparent preference weights. They are product rules, not learned model parameters.
 SCORING_WEIGHTS: dict[str, dict[str, float]] = {
     "scenic": {
-        "natureEvidence": 0.20,
+        "natureEvidence": 0.10,
+        "waterfallEvidence": 0.10,
         "viewpointEvidence": 0.20,
         "beachEvidence": 0.15,
         "wildlifeEvidence": 0.15,
@@ -41,7 +42,8 @@ SCORING_WEIGHTS: dict[str, dict[str, float]] = {
         "distancePenalty": 0.10,
     },
     "nature": {
-        "natureEvidence": 0.40,
+        "natureEvidence": 0.25,
+        "waterfallEvidence": 0.15,
         "wildlifeEvidence": 0.25,
         "parkEvidence": 0.15,
         "durationPenalty": 0.10,
@@ -55,7 +57,7 @@ SCORING_WEIGHTS: dict[str, dict[str, float]] = {
     "culture": {
         "heritageEvidence": 0.35,
         "museumEvidence": 0.25,
-        "cultureReligiousEvidence": 0.20,
+        "religiousEvidence": 0.20,
         "durationPenalty": 0.10,
         "distancePenalty": 0.10,
     },
@@ -67,9 +69,15 @@ SCORING_WEIGHTS: dict[str, dict[str, float]] = {
 }
 
 CATEGORY_KEYS = (
-    "nature", "beach", "waterfall", "wildlife", "heritage", "cultureReligious",
+    "nature", "beach", "waterfall", "wildlife", "heritage", "religious", "cultureReligious",
     "attraction", "food", "viewpoint", "park", "museum",
 )
+EVIDENCE_CATEGORIES = {
+    "nature": ("nature",), "waterfall": ("waterfall",), "wildlife": ("wildlife",),
+    "park": ("park",), "beach": ("beach",), "food": ("food",),
+    "heritage": ("heritage",), "museum": ("museum",), "religious": ("religious",),
+}
+EVIDENCE_LEVEL_THRESHOLDS = {"none": 0, "sparse": 1, "moderate": 3, "strong": 8}
 
 
 class RouteEngineError(RuntimeError):
@@ -453,11 +461,34 @@ def route_poi_features(
         counts = category_series.value_counts().to_dict()
         category_counts = {key: int(counts.get(key, 0)) for key in CATEGORY_KEYS}
         category_counts["cultureReligious"] = int(counts.get("culture", 0) + counts.get("religious", 0))
+        evidence_counts = {
+            key: sum(int(counts.get(category, 0)) for category in categories)
+            for key, categories in EVIDENCE_CATEGORIES.items()
+        }
+        evidence_counts["viewpoint"] = int(counts.get("viewpoint", 0))
+        evidence_counts["hiddenGem"] = sum("hidden-gem" in poi["tags"] for poi in nearby)
+        total_count = len(nearby)
+        evidence_level = (
+            "strong" if total_count >= EVIDENCE_LEVEL_THRESHOLDS["strong"] else
+            "moderate" if total_count >= EVIDENCE_LEVEL_THRESHOLDS["moderate"] else
+            "sparse" if total_count >= EVIDENCE_LEVEL_THRESHOLDS["sparse"] else "none"
+        )
+        distance_km = max(float(candidate["distanceMeters"]) / 1000, 0.001)
         # Category count collection keeps the normalized key but prevents duplicate data in the response.
         output.append({
             **candidate,
             "nearbyPoiCount": len(nearby),
             "categoryCounts": category_counts,
+            **{f"{key}Count": value for key, value in evidence_counts.items() if key != "viewpoint" and key != "hiddenGem"},
+            "categoryCountPer100Km": {key: round(value / distance_km * 100, 3) for key, value in evidence_counts.items()},
+            "evidence": {
+                "nearbyPoiCount": total_count,
+                "matchedCategories": sorted(key for key, count in evidence_counts.items() if count > 0),
+                "categoryCounts": evidence_counts,
+                "corridorMeters": corridor_meters,
+                "evidenceLevel": evidence_level,
+                "meaning": "Amount of mapped OSM/VIATOR evidence near this route; not route quality, popularity, completeness, scenic quality, or user satisfaction.",
+            },
             "nearbyPois": nearby,
         })
     return output
@@ -488,7 +519,11 @@ def add_preference_scores(
     feature_counts = [candidate["categoryCounts"] for candidate in candidates]
     feature_specs = {
         "natureEvidence": [
-            _rate(counts["nature"] + counts["waterfall"], candidate["distanceMeters"])
+            _rate(counts["nature"], candidate["distanceMeters"])
+            for counts, candidate in zip(feature_counts, candidates, strict=True)
+        ],
+        "waterfallEvidence": [
+            _rate(counts["waterfall"], candidate["distanceMeters"])
             for counts, candidate in zip(feature_counts, candidates, strict=True)
         ],
         "viewpointEvidence": [
@@ -519,8 +554,8 @@ def add_preference_scores(
             _rate(counts["museum"], candidate["distanceMeters"])
             for counts, candidate in zip(feature_counts, candidates, strict=True)
         ],
-        "cultureReligiousEvidence": [
-            _rate(counts["cultureReligious"], candidate["distanceMeters"])
+        "religiousEvidence": [
+            _rate(counts["religious"], candidate["distanceMeters"])
             for counts, candidate in zip(feature_counts, candidates, strict=True)
         ],
         "hiddenGemEvidence": [
@@ -551,17 +586,18 @@ def add_preference_scores(
     else:
         weights = SCORING_WEIGHTS[preference]
         if preference == "nature":
-            feature_keys = ["natureEvidence", "wildlifeEvidence", "parkEvidence"]
+            feature_keys = ["natureEvidence", "waterfallEvidence", "wildlifeEvidence", "parkEvidence", "beachEvidence"]
         elif preference == "scenic":
-            feature_keys = ["natureEvidence", "viewpointEvidence", "beachEvidence", "wildlifeEvidence", "parkEvidence"]
+            feature_keys = ["natureEvidence", "waterfallEvidence", "viewpointEvidence", "beachEvidence", "wildlifeEvidence", "parkEvidence"]
         elif preference == "food":
             feature_keys = ["foodEvidence"]
         else:
-            feature_keys = ["heritageEvidence", "museumEvidence", "cultureReligiousEvidence"]
+            feature_keys = ["heritageEvidence", "museumEvidence", "religiousEvidence"]
         def has_evidence(candidate: dict[str, Any], key: str) -> bool:
             counts = candidate["categoryCounts"]
             category = {
-                "natureEvidence": counts["nature"] + counts["waterfall"],
+                "natureEvidence": counts["nature"],
+                "waterfallEvidence": counts["waterfall"],
                 "viewpointEvidence": counts["viewpoint"],
                 "beachEvidence": counts["beach"],
                 "wildlifeEvidence": counts["wildlife"],
@@ -569,7 +605,7 @@ def add_preference_scores(
                 "foodEvidence": counts["food"],
                 "heritageEvidence": counts["heritage"],
                 "museumEvidence": counts["museum"],
-                "cultureReligiousEvidence": counts["cultureReligious"],
+                "religiousEvidence": counts["religious"],
             }[key]
             return category > 0
 
@@ -611,17 +647,25 @@ def add_preference_scores(
                     breakdown[f"{key}Contribution"] = round(contribution, 4)
                     breakdown[f"{key}Weight"] = weight
                 candidate["scoreBreakdown"] = breakdown
+                # Preserve the aggregate scoring terms while making each source category auditable.
+                candidate["scoreBreakdown"]["categoryEvidenceCounts"] = dict(candidate["evidence"]["categoryCounts"])
+                candidate["scoreBreakdown"]["categoryCountPer100Km"] = dict(candidate["categoryCountPer100Km"])
             candidate["score"] = round(max(0.0, min(1.0, score)), 4)
     fastest = min(candidates, key=lambda item: (item["durationSeconds"], item["distanceMeters"]))
     for candidate in candidates:
         candidate["detourFromFastestMeters"] = round(max(0.0, candidate["distanceMeters"] - fastest["distanceMeters"]), 1)
         candidate["detourFromFastestSeconds"] = round(max(0.0, candidate["durationSeconds"] - fastest["durationSeconds"]), 1)
+        candidate["detourFromFastestPercent"] = round(max(0.0, candidate["distanceMeters"] - fastest["distanceMeters"]) / fastest["distanceMeters"] * 100, 2) if fastest["distanceMeters"] > 0 else 0.0
+        candidate["detourFromFastestDurationPercent"] = round(max(0.0, candidate["durationSeconds"] - fastest["durationSeconds"]) / fastest["durationSeconds"] * 100, 2) if fastest["durationSeconds"] > 0 else 0.0
         candidate["recommended"] = False
         candidate["recommendationReason"] = ""
 
     if fallback:
         winner = min(candidates, key=lambda candidate: (candidate["durationSeconds"], candidate["distanceMeters"], candidate["candidateId"]))
         reason = (
+            "Hidden-gems evidence is currently unavailable in the POI records; "
+            "the fastest OSRM candidate is recommended as a fallback."
+            if preference == "hidden-gems" else
             f"The {preference} preference is unsupported because no route corridor has source-backed "
             "evidence for it; the fastest OSRM candidate is recommended as a fallback."
         )
@@ -631,18 +675,32 @@ def add_preference_scores(
         if preference == "fastest":
             reason = "Recommended by the shortest OSRM duration among the valid candidates."
         else:
-            evidence = ", ".join(
-                f"{key}={winner['categoryCounts'][category]}"
-                for key, category in (
-                    ("nature", "nature"), ("viewpoints", "viewpoint"), ("beaches", "beach"),
-                    ("wildlife", "wildlife"), ("heritage", "heritage"), ("museums", "museum"),
-                    ("food", "food"),
+            if preference == "culture":
+                evidence = ", ".join(
+                    f"{label}={winner['categoryCounts'][category]}"
+                    for label, category in (
+                        ("heritage", "heritage"), ("museums", "museum"), ("religious", "religious"),
+                    )
+                    if winner["categoryCounts"].get(category, 0) > 0
                 )
-                if winner["categoryCounts"].get(category, 0) > 0
-            )
+                evidence_summary = (
+                    f"measured nearby cultural POI evidence: {evidence}"
+                    if evidence else "no heritage, museum, or religious POIs on this route corridor"
+                )
+            else:
+                evidence = ", ".join(
+                    f"{key}={winner['categoryCounts'][category]}"
+                    for key, category in (
+                        ("nature", "nature"), ("viewpoints", "viewpoint"), ("beaches", "beach"),
+                        ("wildlife", "wildlife"), ("heritage", "heritage"), ("museums", "museum"),
+                        ("food", "food"),
+                    )
+                    if winner["categoryCounts"].get(category, 0) > 0
+                )
+                evidence_summary = f"measured nearby POI evidence: {evidence or 'category evidence tied'}"
             reason = (
-                f"Highest transparent {preference} feature score ({winner['score']:.2f}); "
-                f"measured nearby POI evidence: {evidence or 'category evidence tied'}, "
+                f"Highest transparent {('mapped scenic evidence proxy' if preference == 'scenic' else preference + ' evidence')} feature score ({winner['score']:.2f}); "
+                f"{evidence_summary}, "
                 f"duration {winner['durationSeconds'] / 60:.0f} minutes."
             )
         recommendation_method = "preference_score"
