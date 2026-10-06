@@ -1,0 +1,240 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * VIATOR design system.
+ * Premium, minimal, spatial. 8pt grid, 16-20px radii, soft shadows.
+ * All colors are oklch semantic tokens — never hardcode colors in components.
+ */
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+  --radius-4xl: calc(var(--radius) + 24px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-surface: var(--surface);
+  --color-map: var(--map);
+  --color-map-line: var(--map-line);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-soft: 0 1px 2px oklch(0.25 0.05 265 / 0.05), 0 4px 16px oklch(0.25 0.05 265 / 0.06);
+  --shadow-float: 0 2px 6px oklch(0.25 0.05 265 / 0.06), 0 12px 32px oklch(0.25 0.05 265 / 0.1);
+  --shadow-lift: 0 8px 20px oklch(0.25 0.05 265 / 0.1), 0 24px 56px oklch(0.25 0.05 265 / 0.14);
+}
+
+:root {
+  --radius: 1.125rem;
+
+  --background: oklch(0.981 0.004 247.9);
+  --foreground: oklch(0.21 0.032 264.4);
+  --surface: oklch(0.965 0.006 247.9);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.032 264.4);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.032 264.4);
+
+  --primary: oklch(0.546 0.215 262.9);
+  --primary-foreground: oklch(0.99 0.002 247.9);
+  --primary-soft: oklch(0.945 0.03 262.9);
+
+  --secondary: oklch(0.955 0.008 247.9);
+  --secondary-foreground: oklch(0.28 0.035 264.4);
+  --muted: oklch(0.958 0.007 247.9);
+  --muted-foreground: oklch(0.55 0.032 257.4);
+  --accent: oklch(0.945 0.03 262.9);
+  --accent-foreground: oklch(0.42 0.19 262.9);
+
+  --success: oklch(0.7 0.15 162.5);
+  --success-foreground: oklch(0.99 0.002 247.9);
+  --success-soft: oklch(0.95 0.045 162.5);
+  --warning: oklch(0.769 0.163 70.1);
+  --warning-foreground: oklch(0.24 0.05 70.1);
+  --warning-soft: oklch(0.96 0.06 85);
+  --destructive: oklch(0.637 0.208 25.3);
+  --destructive-foreground: oklch(0.99 0.002 247.9);
+
+  --border: oklch(0.918 0.011 255.5);
+  --input: oklch(0.918 0.011 255.5);
+  --ring: oklch(0.546 0.215 262.9);
+
+  --map: oklch(0.935 0.018 205);
+  --map-line: oklch(0.885 0.014 240);
+
+  --chart-1: oklch(0.546 0.215 262.9);
+  --chart-2: oklch(0.7 0.15 162.5);
+  --chart-3: oklch(0.769 0.163 70.1);
+  --chart-4: oklch(0.637 0.208 25.3);
+  --chart-5: oklch(0.62 0.13 300);
+
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.21 0.032 264.4);
+  --sidebar-primary: oklch(0.546 0.215 262.9);
+  --sidebar-primary-foreground: oklch(0.99 0.002 247.9);
+  --sidebar-accent: oklch(0.945 0.03 262.9);
+  --sidebar-accent-foreground: oklch(0.42 0.19 262.9);
+  --sidebar-border: oklch(0.918 0.011 255.5);
+  --sidebar-ring: oklch(0.546 0.215 262.9);
+}
+
+.dark {
+  --background: oklch(0.176 0.024 264.4);
+  --foreground: oklch(0.975 0.004 247.9);
+  --surface: oklch(0.216 0.028 264.4);
+  --card: oklch(0.226 0.028 264.4);
+  --card-foreground: oklch(0.975 0.004 247.9);
+  --popover: oklch(0.226 0.028 264.4);
+  --popover-foreground: oklch(0.975 0.004 247.9);
+
+  --primary: oklch(0.63 0.19 262.9);
+  --primary-foreground: oklch(0.145 0.02 264.4);
+  --primary-soft: oklch(0.3 0.07 262.9);
+
+  --secondary: oklch(0.27 0.03 260);
+  --secondary-foreground: oklch(0.975 0.004 247.9);
+  --muted: oklch(0.27 0.03 260);
+  --muted-foreground: oklch(0.72 0.03 256.8);
+  --accent: oklch(0.3 0.07 262.9);
+  --accent-foreground: oklch(0.87 0.08 262.9);
+
+  --success: oklch(0.72 0.15 162.5);
+  --success-foreground: oklch(0.15 0.03 162.5);
+  --success-soft: oklch(0.3 0.07 162.5);
+  --warning: oklch(0.8 0.16 70.1);
+  --warning-foreground: oklch(0.2 0.04 70.1);
+  --warning-soft: oklch(0.32 0.07 70.1);
+  --destructive: oklch(0.68 0.19 25.3);
+  --destructive-foreground: oklch(0.15 0.03 25.3);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.63 0.19 262.9);
+
+  --map: oklch(0.235 0.026 245);
+  --map-line: oklch(0.3 0.028 245);
+
+  --chart-1: oklch(0.63 0.19 262.9);
+  --chart-2: oklch(0.72 0.15 162.5);
+  --chart-3: oklch(0.8 0.16 70.1);
+  --chart-4: oklch(0.68 0.19 25.3);
+  --chart-5: oklch(0.68 0.15 300);
+
+  --sidebar: oklch(0.216 0.028 264.4);
+  --sidebar-foreground: oklch(0.975 0.004 247.9);
+  --sidebar-primary: oklch(0.63 0.19 262.9);
+  --sidebar-primary-foreground: oklch(0.145 0.02 264.4);
+  --sidebar-accent: oklch(0.3 0.07 262.9);
+  --sidebar-accent-foreground: oklch(0.87 0.08 262.9);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.63 0.19 262.9);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Glassmorphism for overlays, bottom sheets and floating controls */
+@utility glass {
+  background: color-mix(in oklab, var(--card) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+@utility glass-strong {
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
+}
+
+@utility float-card {
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  box-shadow: var(--shadow-float);
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+
+@utility transition-premium {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Faux map canvas used until Mapbox GL JS is wired in */
+@utility map-grid {
+  background-color: var(--map);
+  background-image:
+    linear-gradient(to right, var(--map-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--map-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
